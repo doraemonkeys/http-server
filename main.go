@@ -12,7 +12,7 @@ import (
 
 func main() {
 
-	port := flag.Int("port", 8080, "port to serve on")
+	port := flag.Int("port", 6688, "port to serve on")
 	ip := flag.String("ip", "0.0.0.0", "ip address to serve on")
 	flag.Parse()
 
@@ -55,7 +55,12 @@ func main() {
 	})
 
 	addr := fmt.Sprintf("%s:%d", *ip, *port)
-	log.Printf("Starting server on %s", addr)
+	log.Printf("Starting server on %s\n", addr)
+	if *ip != "0.0.0.0" {
+		fmt.Printf("Try to access http://%s:%d\n", *ip, *port)
+	} else {
+		fmt.Printf("Try to access http://127.0.0.1:%d\n", *port)
+	}
 	err := http.ListenAndServe(addr, nil)
 	if err != nil {
 		log.Fatal("ListenAndServe: ", err)
