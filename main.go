@@ -1,68 +1,47 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
 	"fmt"
-	"log"
-	"net/http"
-	"net/http/httputil"
-	"time"
+	"os"
+
+	"github.com/doraemonkeys/http-server/internal/echo"
+	"github.com/doraemonkeys/http-server/internal/fileserver"
 )
 
+const usage = `Usage: http-server <command> [options]
+
+Commands:
+  echo    Start an HTTP echo server that returns request details as JSON
+  file    Start an HTTP file server that serves a directory
+
+Run 'http-server <command> -h' for more information on a command.`
+
 func main() {
-
-	port := flag.Int("port", 6688, "port to serve on")
-	ip := flag.String("ip", "0.0.0.0", "ip address to serve on")
-	flag.Parse()
-
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		requestDump, err := httputil.DumpRequest(r, true)
-		if err != nil {
-			http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
-			return
-		}
-
-		requestInfo := map[string]interface{}{
-			"Method":           r.Method,
-			"URL":              r.URL.String(),
-			"Proto":            r.Proto,
-			"Header":           r.Header,
-			"Body":             string(requestDump),
-			"ContentLength":    r.ContentLength,
-			"Host":             r.Host,
-			"RemoteAddr":       r.RemoteAddr,
-			"RequestURI":       r.RequestURI,
-			"TLS":              r.TLS,
-			"TransferEncoding": r.TransferEncoding,
-			"Form":             r.Form,
-			"PostForm":         r.PostForm,
-			"MultipartForm":    r.MultipartForm,
-			"Trailer":          r.Trailer,
-			"RequestTime":      time.Now().Format(time.RFC3339),
-		}
-
-		prettyJSON, err := json.MarshalIndent(requestInfo, "", "  ")
-		if err != nil {
-			http.Error(w, fmt.Sprint(err), http.StatusInternalServerError)
-			return
-		}
-
-		w.Header().Set("Content-Type", "application/json")
-
-		fmt.Fprintf(w, "%s", prettyJSON)
-		// log.Printf("Received request:\n%s", prettyJSON)
-	})
-
-	addr := fmt.Sprintf("%s:%d", *ip, *port)
-	log.Printf("Starting server on %s\n", addr)
-	if *ip != "0.0.0.0" {
-		fmt.Printf("Try to access http://%s:%d\n", *ip, *port)
-	} else {
-		fmt.Printf("Try to access http://127.0.0.1:%d\n", *port)
+	if len(os.Args) < 2 {
+		fmt.Println(usage)
+		os.Exit(1)
 	}
-	err := http.ListenAndServe(addr, nil)
-	if err != nil {
-		log.Fatal("ListenAndServe: ", err)
+
+	switch os.Args[1] {
+	case "echo":
+		echoCmd := flag.NewFlagSet("echo", flag.ExitOnError)
+		port := echoCmd.Int("port", 6688, "Port to listen on")
+		ip := echoCmd.String("ip", "0.0.0.0", "IP address to listen on")
+		echoCmd.Parse(os.Args[2:])
+		echo.Start(*ip, *port)
+
+	case "file":
+		fileCmd := flag.NewFlagSet("file", flag.ExitOnError)
+		port := fileCmd.Int("port", 8080, "Port to listen on")
+		ip := fileCmd.String("ip", "0.0.0.0", "IP address to listen on")
+		dir := fileCmd.String("d", ".", "Directory to serve")
+		fileCmd.Parse(os.Args[2:])
+		fileserver.Start(*ip, *port, *dir)
+
+	default:
+		fmt.Printf("Unknown command: %s\n\n", os.Args[1])
+		fmt.Println(usage)
+		os.Exit(1)
 	}
 }
